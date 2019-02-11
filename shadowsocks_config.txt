@@ -1,0 +1,87 @@
+本教程使用PuTTY客户端连接实例（当然其它SSH客户端也是可以的），
+先下载putty并安装，通过puttygen.exe将pem密钥文件转换为ppk文件
+点击Load，所有文件，选择刚才下载的pem密钥文件，
+选择RSA，Number of bits in a generated keys输入2048，点击save private key保存ppk文件
+如果不会用putty，可以参考aws上面的教程
+
+设置入站规则
+在实例的右边选择安全组，点击入站-编辑-添加规则，
+选择自定义TCP规则，端口设为443（或者其他未使用的端口，如果要设为其它数字，后面的ss配置文件也要用相同的数字），
+现有的SSH规则默认端口22，如果要改，putty中的端口也要改为相应的
+
+待实例部署完成后，点击实例，复制公有DNS
+打开putty.exe，Host Name框中填写ubuntu@公有DNS地址，Port填写端口，默认22
+SSH-Auth标签中选择刚才的ppk密钥文件，点击open连接实例
+
+在弹出的终端中，输入以下命令，#后面的文字为命令的注释
+sudo su     #获取root权限，如果不获取，后面的命令需要在前面加上sudo
+apt-get update       #更新软件列表
+apt-get install python-pip   #安装python包管理器
+pip install shadowsocks    #通过pip安装python版本的ss
+pip install m2crypto     #安装加密依赖包
+vim /etc/shadowsocks.json  #用文本编辑器vim在/etc目录下建立配置文件shadowsocks.json，若没有vim可以用vi
+
+复制一下内容，在弹出的窗口中点击右键粘贴，大括号也要复制
+端口默认443，密码自己设置，加密方式也可以按自己想要的设置
+
+{
+    "server": "0.0.0.0",
+    "server_port": 443,
+    "local_address": "127.0.0.1",
+    "local_port": 1080,
+    "password": "qwer1234",
+    "timeout": 300,
+    "method": "aes-256-cfb",
+    "fast_open": false
+}
+
+输入:wq并按回车以保存退出（如果你不会用vim，可以搜索一下教程）
+
+（输入命令ssserver -h可以查看shadowsocks的说明）
+
+输入命令ssserver -c /etc/shadowsocks.json -d start运行shadowsocks
+发现有错误，这是因为openssl1.1.0的一个函数名字改了
+我们需要把/usr/local/lib/python2.7/dist-packages/shadowsocks/crypto/openssl.py这个文件中的cleanup改为reset
+
+vim /usr/local/lib/python2.7/dist-packages/shadowsocks/crypto/openssl.py  #用vim打开这个文件
+
+输入/cleanup回车，输入i切换成inser模式，把cleanup改为reset，共有2处
+
+改完后按退出键，输入:wq保存并退出
+
+再次输入ssserver -c /etc/shadowsocks.json -d start  # -c意思是按照指定的配置文件运行，-d意思是后台运行
+
+打开电脑的ss客户端，输入实例的ipv4公有ip，输入你设定的密码，输入端口号和加密方式，链接
+
+接下来设置开机启动
+vim /etc/rc.local    #用vim打开rc.local文件，如果不存在会自动新建
+如果文件存在，在exit 0上面新建一行，粘贴ssserver -c /etc/shadowsocks.json 
+如果不存在，粘贴下列内容
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+ssserver -c /etc/shadowsocks.json 
+exit 0
+输入:wq保存并退出
+输入下面3条命令使设置生效
+sudo chown root:root /etc/rc.local
+sudo chmod 755 /etc/rc.local
+sudo systemctl enable rc-local.service
+输入reboot重启，试一下是否shadowsocks服务自动启动
+
+记住，只开一个实例，一年后记得终止（不是停止），否则会扣费
+你要在相应的地区选择实例来终止，例如你在美国西部看不到东京建的实例
+想继续使用也是可以的，但价格比其他vps贵
+
+
+
+----Cite from Youtube Channel : 扎心的教程
