@@ -34,7 +34,7 @@ def send_email():
     msg = f"Subject : {subject}\n\n {body} "
     server.sendmail('whtitefall@gmail.com','bhu078@uottawa.ca',msg) 
     print ('email sent')
-    server.close()
+    server.quit()
 
 
 if (converted_price < 100):
